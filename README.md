@@ -21,4 +21,4 @@ $ wget --no-check-certificate \
     -O zombie-walk-frames.zip \
 $ mkdir results \
 $ unzip zombie-walk-frames.zip to ./results \
-$ Run main.py \
+$ Run main.py 
