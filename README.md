@@ -7,6 +7,8 @@ These are the animated results:
 
 ![Results](zombie-anim.gif?raw=true "Animated gif")
 
+The main.py script is a solution to a programming challenge from Coursera's "Advanced Computer Vision with TensorFlow" course, which provides the training and test samples for this project.
+
 ## Pre-requisites and Running the Program
 $ git clone --depth 1 https://github.com/tensorflow/models/ \
 $ cd models/research/ \
