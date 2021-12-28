@@ -18,7 +18,7 @@ $ tar -xf ssd_resnet50_v1_fpn_640x640_coco17_tpu-8.tar.gz \
 $ mv ssd_resnet50_v1_fpn_640x640_coco17_tpu-8/checkpoint models/research/object_detection/test_data/ \
 $ wget --no-check-certificate \
     https://storage.googleapis.com/laurencemoroney-blog.appspot.com/zombie-walk-frames.zip \
-    -O zombie-walk-frames.zip
-$ mkdir results
-$ unzip zombie-walk-frames.zip to ./results
-$ Run main.py
+    -O zombie-walk-frames.zip \
+$ mkdir results \
+$ unzip zombie-walk-frames.zip to ./results \
+$ Run main.py \
