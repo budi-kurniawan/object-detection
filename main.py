@@ -11,8 +11,8 @@ import glob
 import imageio
 from six import BytesIO
 from PIL import Image, ImageDraw, ImageFont
-from IPython.display import display, Javascript
-from IPython.display import Image as IPyImage
+#from IPython.display import display, Javascript
+#from IPython.display import Image as IPyImage
 
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
