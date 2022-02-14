@@ -10,6 +10,7 @@ These are the animated results:
 The main.py script is a solution to a programming challenge from Coursera's "Advanced Computer Vision with TensorFlow" course, which provides the training and test samples for this project.
 
 ## Pre-requisites and Running the Program
+Make sure tensorflow 2.7.0 and tensorflow-text 2.7.3 are used. TF 2.8 or different versions of tensorflow-text may cause errors.
 
 ### Extra Steps for Windows
 $ On Windows, download https://github.com/google/protobuf/releases/download/v3.0.0-alpha-3/protoc-3.0.0-alpha-3-win32.zip and extract the zip file to install protoc.\
