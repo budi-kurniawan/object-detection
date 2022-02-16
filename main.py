@@ -27,7 +27,6 @@ from object_detection.utils import visualization_utils as viz_utils
 
 # import module for building the detection model
 from object_detection.builders import model_builder
-### END CODE HERE ###
 
 # import module for utilities in Colab
 #from object_detection.utils import colab_utils
@@ -45,7 +44,6 @@ def load_image_into_numpy_array(path):
     Returns:
     uint8 numpy array with shape (img_height, img_width, 3)
     """
-    
     img_data = tf.io.gfile.GFile(path, 'rb').read()
     image = Image.open(BytesIO(img_data))
     (im_width, im_height) = image.size
@@ -54,15 +52,8 @@ def load_image_into_numpy_array(path):
         (im_height, im_width, 3)).astype(np.uint8)
 
 
-def plot_detections(image_np,
-                    boxes,
-                    classes,
-                    scores,
-                    category_index,
-                    figsize=(12, 16),
-                    image_name=None):
+def plot_detections(image_np, boxes, classes, scores, category_index, figsize=(12, 16), image_name=None):
     """Wrapper function to visualize detections.
-
     Args:
     image_np: uint8 numpy array with shape (img_height, img_width, 3)
     boxes: a numpy array of shape [N, 4]
@@ -75,22 +66,14 @@ def plot_detections(image_np,
           category index `id` and category name `name`) keyed by category indices.
     figsize: size for the figure.
     image_name: a name for the image file.
-    """
-    
+    """    
     image_np_with_annotations = image_np.copy()
     
     viz_utils.visualize_boxes_and_labels_on_image_array(
-        image_np_with_annotations,
-        boxes,
-        classes,
-        scores,
-        category_index,
-        use_normalized_coordinates=True,
-        min_score_thresh=0.8)
-    
+        image_np_with_annotations, boxes, classes, scores, category_index,
+        use_normalized_coordinates=True, min_score_thresh=0.8)
     if image_name:
         plt.imsave(image_name, image_np_with_annotations)
-    
     else:
         plt.imshow(image_np_with_annotations)
 
