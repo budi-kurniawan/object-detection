@@ -35,3 +35,8 @@ $ wget --no-check-certificate \
 $ mkdir results \
 $ unzip zombie-walk-frames.zip to ./results \
 $ Run main.py 
+
+
+### Training and detection times
+on i5-10400 (Win11, no GPU) training takes 00:04:50 (four minutes, 50 seconds) \
+detection time takes 3 minutes 22 seconds

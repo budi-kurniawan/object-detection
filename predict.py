@@ -304,39 +304,10 @@ def train_step_fn(image_list,
 
 print('Start fine-tuning!', flush=True)
 
-tf.saved_model.save(detection_model, 'my-models/model0')
-print('model0 saved')
+detection_model = tf.saved_model.load('my-models/model1')
+print('model1 loaded')
 t1 = timer()
 
-for idx in range(num_batches):
-    # Grab keys for a random subset of examples
-    all_keys = list(range(len(train_images_np)))
-    random.shuffle(all_keys)
-    example_keys = all_keys[:batch_size] # budi: take 4 of 5 indexes
-
-    # Get the ground truth
-    gt_boxes_list = [gt_box_tensors[key] for key in example_keys]
-    gt_classes_list = [gt_classes_one_hot_tensors[key] for key in example_keys]
-    
-    # get the images
-    image_tensors = [train_image_tensors[key] for key in example_keys]
-
-    # Training step (forward pass + backwards pass)
-    total_loss = train_step_fn(image_tensors, 
-                               gt_boxes_list, 
-                               gt_classes_list,
-                               detection_model,
-                               optimizer,
-                               to_fine_tune
-                              )
-
-    if idx % 10 == 0:
-        print('batch ' + str(idx) + ' of ' + str(num_batches)
-        + ', loss=' +  str(total_loss.numpy()), flush=True)
-
-print('Done fine-tuning!')
-tf.saved_model.save(detection_model, 'my-models/model1')
-print('model1 saved')
 t2 = timer()
 
 test_image_dir = './results/'
