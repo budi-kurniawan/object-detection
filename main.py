@@ -1,5 +1,4 @@
 from ctypes import util
-import matplotlib
 import matplotlib.pyplot as plt
 import os
 import random
@@ -7,77 +6,21 @@ from pathlib import Path
 import numpy as np
 from timeit import default_timer as timer
 from datetime import timedelta
+from training_util import get_training_data, load_image_into_numpy_array, plot_detections
 
-from training_util import get_training_data, load_image_into_numpy_array
-
-import glob
-import imageio
-from six import BytesIO
+# import glob
+# import imageio
+# from six import BytesIO
 from PIL import Image, ImageDraw, ImageFont
-#from IPython.display import display, Javascript
-#from IPython.display import Image as IPyImage
-
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
-# import the label map utility module
-from object_detection.utils import label_map_util
-
-# import module for reading and updating configuration files.
-from object_detection.utils import config_util
-
-# import module for visualization. use the alias `viz_utils`
-from object_detection.utils import visualization_utils as viz_utils
-
-# import module for building the detection model
+from object_detection.utils import config_util # module for reading and updating configuration files.
 from object_detection.builders import model_builder
 
-# import module for utilities in Colab
-#from object_detection.utils import colab_utils
-
-def plot_detections(image_np, boxes, classes, scores, category_index, figsize=(12, 16), image_name=None):
-    """Wrapper function to visualize detections.
-    Args:
-    image_np: uint8 numpy array with shape (img_height, img_width, 3)
-    boxes: a numpy array of shape [N, 4]
-    classes: a numpy array of shape [N]. Note that class indices are 1-based,
-          and match the keys in the label map.
-    scores: a numpy array of shape [N] or None.  If scores=None, then
-          this function assumes that the boxes to be plotted are groundtruth
-          boxes and plot all boxes as black with no classes or scores.
-    category_index: a dict containing category dictionaries (each holding
-          category index `id` and category name `name`) keyed by category indices.
-    figsize: size for the figure.
-    image_name: a name for the image file.
-    """    
-    image_np_with_annotations = image_np.copy()
-    
-    viz_utils.visualize_boxes_and_labels_on_image_array(
-        image_np_with_annotations, boxes, classes, scores, category_index,
-        use_normalized_coordinates=True, min_score_thresh=0.8)
-    if image_name:
-        plt.imsave(image_name, image_np_with_annotations)
-    else:
-        plt.imshow(image_np_with_annotations)
-
-
-# configure plot settings via rcParams
-plt.rcParams['axes.grid'] = False
-plt.rcParams['xtick.labelsize'] = False
-plt.rcParams['ytick.labelsize'] = False
-plt.rcParams['xtick.top'] = False
-plt.rcParams['xtick.bottom'] = False
-plt.rcParams['ytick.left'] = False
-plt.rcParams['ytick.right'] = False
-plt.rcParams['figure.figsize'] = [14, 7]
-
 train_images_np, gt_boxes = get_training_data("./training/training-data.csv")
-
-# Exercise 3: Define the category index dictionary
-zombie_class_id = 1
-# define a dictionary describing the zombie class
-category_index = {zombie_class_id: {'id': zombie_class_id, 'name': 'zombie'}}
-# Specify the number of classes that the model will predict
-num_classes = 1
+zombie_class_id = 1 # define the category index dictionary
+category_index = {zombie_class_id: {'id': zombie_class_id, 'name': 'zombie'}} # define a dictionary describing the zombie class
+num_classes = 1 # Specify the number of classes that the model will predict
 
 # Data preprocessing
 # The `label_id_offset` here shifts all classes by a certain number of indices;
@@ -110,7 +53,6 @@ for (train_image_np, gt_box_np) in zip(train_images_np, gt_boxes):
 print('Done prepping data.')
 
 # Visualise zombies with ground truth bounding boxes
-
 path_to_bounding_boxes = "./saved_images/bounding_boxes.png"
 my_file = Path(path_to_bounding_boxes)
 if not my_file.is_file():
@@ -118,22 +60,16 @@ if not my_file.is_file():
     # define the figure size
     plt.figure(figsize=(30, 15))
     # use the `plot_detections()` utility function to draw the ground truth boxes
-    for idx in range(5):
+    for idx in range(len(train_images_np)):
         plt.subplot(2, 4, idx+1)
-        plot_detections(
-        train_images_np[idx],
-        gt_boxes[idx],
-        np.ones(shape=[gt_boxes[idx].shape[0]], dtype=np.int32),
-        dummy_scores, category_index)
+        plot_detections(train_images_np[idx], gt_boxes[idx],
+            np.ones(shape=[gt_boxes[idx].shape[0]], dtype=np.int32), dummy_scores, category_index)
     plt.savefig(path_to_bounding_boxes)
 
 # Download the checkpoint containing the pre-trained weights
-
 # Configure the models
 tf.keras.backend.clear_session()
 
-
-### START CODE HERE ###
 # define the path to the .config file for ssd resnet 50 v1 640x640
 pipeline_config = 'models/research/object_detection/configs/tf2/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8.config'
 
@@ -145,8 +81,7 @@ model_config.ssd.num_classes = num_classes
 
 # Freeze batch normalization
 model_config.ssd.freeze_batchnorm = True
-# build the model
-detection_model = model_builder.build(model_config=model_config, is_training=True)
+detection_model = model_builder.build(model_config=model_config, is_training=True) # build the model
 
 tmp_box_predictor_checkpoint = tf.train.Checkpoint(
     _base_tower_layers_for_heads=detection_model._box_predictor._base_tower_layers_for_heads,
@@ -176,8 +111,6 @@ tmp_prediction_dict = detection_model.predict(tmp_image, tmp_shapes)
 # postprocess the predictions into final detections
 tmp_detections = detection_model.postprocess(tmp_prediction_dict, tmp_shapes)
 
-### END CODE HERE ###
-
 print('Weights restored!')
 
 # Eager mode custom training loop
@@ -192,16 +125,11 @@ for v in detection_model.trainable_variables:
   if v.name.startswith('WeightSharedConvolutionalBoxPredictor/WeightSharedConvolutional'):
     to_fine_tune.append(v)
 
-# Exercise 10: Define the training step
+# define the training step
 @tf.function
-def train_step_fn(image_list,
-                groundtruth_boxes_list,
-                groundtruth_classes_list,
-                model,
-                optimizer,
-                vars_to_fine_tune):
+def train_step_fn(image_list, groundtruth_boxes_list, groundtruth_classes_list, model,
+                optimizer, vars_to_fine_tune):
     """A single training iteration.
-
     Args:
       image_list: A list of [1, height, width, 3] Tensor of type tf.float32.
         Note that the height and width can vary across images, as they are
@@ -215,13 +143,8 @@ def train_step_fn(image_list,
     Returns:
       A scalar tensor representing the total loss for the input batch.
     """
-    print('len image_list:', len(image_list), image_list)
-    print('len groundtruth_boxes_list:', len(groundtruth_boxes_list))
-    print('len groundtruth_classes_list:', len(groundtruth_classes_list))
-
     with tf.GradientTape() as tape:
     ### START CODE HERE (Replace instances of `None` with your code) ###
-
         # Preprocess the images
         preprocessed_image_list = []
         true_shape_list = []
@@ -233,10 +156,7 @@ def train_step_fn(image_list,
         preprocessed_image_tensor = tf.concat(preprocessed_image_list, axis=0)
         true_shape_tensor = tf.concat(true_shape_list, axis=0)
 
-        # Make a prediction
         prediction_dict = model.predict(preprocessed_image_tensor, true_shape_tensor)
-
-        # Provide the ground truth to the model
         model.provide_groundtruth(groundtruth_boxes_list=groundtruth_boxes_list, groundtruth_classes_list=groundtruth_classes_list)          
 
         try:
@@ -251,9 +171,6 @@ def train_step_fn(image_list,
         gradients = tape.gradient(total_loss, vars_to_fine_tune)
         # Optimize the model's selected variables
         optimizer.apply_gradients(zip(gradients, vars_to_fine_tune))        
-        
-        ### END CODE HERE ###
-        
     return total_loss
 
 print('Start fine-tuning!', flush=True)
@@ -276,17 +193,11 @@ for idx in range(num_batches):
     image_tensors = [train_image_tensors[key] for key in example_keys]
 
     # Training step (forward pass + backwards pass)
-    total_loss = train_step_fn(image_tensors, 
-                               gt_boxes_list, 
-                               gt_classes_list,
-                               detection_model,
-                               optimizer,
-                               to_fine_tune
-                              )
+    total_loss = train_step_fn(image_tensors, gt_boxes_list, gt_classes_list,
+        detection_model, optimizer, to_fine_tune)
 
     if idx % 10 == 0:
-        print('batch ' + str(idx) + ' of ' + str(num_batches)
-        + ', loss=' +  str(total_loss.numpy()), flush=True)
+      print('batch ' + str(idx) + ' of ' + str(num_batches) + ', loss=' +  str(total_loss.numpy()), flush=True)
 
 print('Done fine-tuning!')
 tf.saved_model.save(detection_model, 'my-models/model1')
@@ -308,7 +219,6 @@ for i in range(0, 237):
 @tf.function
 def detect(input_tensor):
     """Run detection on an input image.
-
     Args:
     input_tensor: A [1, height, width, 3] Tensor of type tf.float32.
       Note that height and width can be anything since the image will be
@@ -320,12 +230,9 @@ def detect(input_tensor):
       and `detection_scores`).
     """
     preprocessed_image, shapes = detection_model.preprocess(input_tensor)
-    prediction_dict = detection_model.predict(preprocessed_image, shapes)
-    
-    ### START CODE HERE (Replace instances of `None` with your code) ###
+    prediction_dict = detection_model.predict(preprocessed_image, shapes)    
     # use the detection model's postprocess() method to get the the final detections
     detections = detection_model.postprocess(prediction_dict, shapes)
-    ### END CODE HERE ###
     return detections
 
 label_id_offset = 1
@@ -337,8 +244,7 @@ for i in range(len(test_images_np)):
     plot_detections(
       test_images_np[i][0],
       detections['detection_boxes'][0].numpy(),
-      detections['detection_classes'][0].numpy().astype(np.uint32)
-      + label_id_offset,
+      detections['detection_classes'][0].numpy().astype(np.uint32) + label_id_offset,
       detections['detection_scores'][0].numpy(),
       category_index, figsize=(15, 20), image_name="./results/gif_frame_" + ('%03d' % i) + ".jpg")
     results['boxes'].append(detections['detection_boxes'][0][0].numpy())
