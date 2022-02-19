@@ -1,13 +1,14 @@
+from ctypes import util
 import matplotlib
 import matplotlib.pyplot as plt
 import os
 import random
-import zipfile
-import io
-import scipy.misc
+from pathlib import Path
 import numpy as np
 from timeit import default_timer as timer
 from datetime import timedelta
+
+from training_util import get_training_data, load_image_into_numpy_array
 
 import glob
 import imageio
@@ -32,27 +33,6 @@ from object_detection.builders import model_builder
 
 # import module for utilities in Colab
 #from object_detection.utils import colab_utils
-
-def load_image_into_numpy_array(path):
-    """Load an image from file into a numpy array.
-
-    Puts image into numpy array to feed into tensorflow graph.
-    Note that by convention we put it into a numpy array with shape
-    (height, width, channels), where channels=3 for RGB.
-
-    Args:
-    path: a file path.
-
-    Returns:
-    uint8 numpy array with shape (img_height, img_width, 3)
-    """
-    img_data = tf.io.gfile.GFile(path, 'rb').read()
-    image = Image.open(BytesIO(img_data))
-    (im_width, im_height) = image.size
-    
-    return np.array(image.getdata()).reshape(
-        (im_height, im_width, 3)).astype(np.uint8)
-
 
 def plot_detections(image_np, boxes, classes, scores, category_index, figsize=(12, 16), image_name=None):
     """Wrapper function to visualize detections.
@@ -80,18 +60,6 @@ def plot_detections(image_np, boxes, classes, scores, category_index, figsize=(1
         plt.imshow(image_np_with_annotations)
 
 
-train_image_dir = './training'
-
-# declare an empty list
-train_images_np = []
-
-# run a for loop for each image
-for i in range(1, 6):
-    # define the path (string) for each image
-    image_path = os.path.join('./training', 'training-zombie' + str(i) + '.jpg')
-    # load images into numpy arrays and append to a list
-    train_images_np.append(load_image_into_numpy_array(image_path))
-
 # configure plot settings via rcParams
 plt.rcParams['axes.grid'] = False
 plt.rcParams['xtick.labelsize'] = False
@@ -102,20 +70,7 @@ plt.rcParams['ytick.left'] = False
 plt.rcParams['ytick.right'] = False
 plt.rcParams['figure.figsize'] = [14, 7]
 
-
-# prepare data for training
-# Define the list of ground truth boxes
-# bounding boxes for each of the 5 zombies found in each image. 
-# you can use these instead of drawing the boxes yourself.
-ref_gt_boxes = [
-        np.array([[0.27333333, 0.41500586, 0.74333333, 0.57678781]]),
-        np.array([[0.29833333, 0.45955451, 0.75666667, 0.61078546]]),
-        np.array([[0.40833333, 0.18288394, 0.945, 0.34818288]]),
-        np.array([[0.16166667, 0.61899179, 0.8, 0.91910903]]),
-        np.array([[0.28833333, 0.12543962, 0.835, 0.35052755]]),
-      ]
-
-gt_boxes = ref_gt_boxes
+train_images_np, gt_boxes = get_training_data("./training/training-data.csv")
 
 # Exercise 3: Define the category index dictionary
 zombie_class_id = 1
@@ -156,7 +111,6 @@ print('Done prepping data.')
 
 # Visualise zombies with ground truth bounding boxes
 
-from pathlib import Path
 path_to_bounding_boxes = "./saved_images/bounding_boxes.png"
 my_file = Path(path_to_bounding_boxes)
 if not my_file.is_file():
