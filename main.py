@@ -1,3 +1,4 @@
+import pickle
 from ctypes import util
 import matplotlib.pyplot as plt
 import os
@@ -6,12 +7,7 @@ from pathlib import Path
 import numpy as np
 from timeit import default_timer as timer
 from datetime import timedelta
-from training_util import get_training_data, load_image_into_numpy_array, plot_detections
-
-# import glob
-# import imageio
-# from six import BytesIO
-from PIL import Image, ImageDraw, ImageFont
+from common_functions import get_training_data, load_image_into_numpy_array, plot_detections, detect, build_detection_model
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 from object_detection.utils import config_util # module for reading and updating configuration files.
@@ -66,51 +62,8 @@ if not my_file.is_file():
             np.ones(shape=[gt_boxes[idx].shape[0]], dtype=np.int32), dummy_scores, category_index)
     plt.savefig(path_to_bounding_boxes)
 
-# Download the checkpoint containing the pre-trained weights
-# Configure the models
 tf.keras.backend.clear_session()
-
-# define the path to the .config file for ssd resnet 50 v1 640x640
-pipeline_config = 'models/research/object_detection/configs/tf2/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8.config'
-
-# Load the configuration file into a dictionary
-configs = config_util.get_configs_from_pipeline_file(pipeline_config)
-model_config = configs['model']
-# Modify the number of classes from its default of 90
-model_config.ssd.num_classes = num_classes
-
-# Freeze batch normalization
-model_config.ssd.freeze_batchnorm = True
-detection_model = model_builder.build(model_config=model_config, is_training=True) # build the model
-
-tmp_box_predictor_checkpoint = tf.train.Checkpoint(
-    _base_tower_layers_for_heads=detection_model._box_predictor._base_tower_layers_for_heads,
-    # _prediction_heads=detection_model._box_predictor._prediction_heads,
-    #    (i.e., the classification head that we *will not* restore)
-    _box_prediction_head=detection_model._box_predictor._box_prediction_head,
-)
-
-tmp_model_checkpoint = tf.train.Checkpoint(
-          _feature_extractor=detection_model._feature_extractor,
-          _box_predictor=tmp_box_predictor_checkpoint)
-
-# restore checkpoints
-checkpoint_path = 'models/research/object_detection/test_data/checkpoint/ckpt-0'
-# Define a checkpoint that sets `model= None
-checkpoint = tf.train.Checkpoint(model=tmp_model_checkpoint)
-
-# Restore the checkpoint to the checkpoint path
-#checkpoint.restore(checkpoint_path)
-checkpoint.restore(checkpoint_path).expect_partial()
-
-tmp_image, tmp_shapes = detection_model.preprocess(tf.zeros([1, 640, 640, 3]))
-
-# run a prediction with the preprocessed image and shapes
-tmp_prediction_dict = detection_model.predict(tmp_image, tmp_shapes)
-
-# postprocess the predictions into final detections
-tmp_detections = detection_model.postprocess(tmp_prediction_dict, tmp_shapes)
-
+detection_model = build_detection_model()
 print('Weights restored!')
 
 # Eager mode custom training loop
@@ -175,8 +128,6 @@ def train_step_fn(image_list, groundtruth_boxes_list, groundtruth_classes_list, 
 
 print('Start fine-tuning!', flush=True)
 
-tf.saved_model.save(detection_model, 'my-models/model0')
-print('model0 saved')
 t1 = timer()
 
 for idx in range(num_batches):
@@ -200,11 +151,16 @@ for idx in range(num_batches):
       print('batch ' + str(idx) + ' of ' + str(num_batches) + ', loss=' +  str(total_loss.numpy()), flush=True)
 
 print('Done fine-tuning!')
-tf.saved_model.save(detection_model, 'my-models/model1')
-print('model1 saved')
-t2 = timer()
 
-test_image_dir = './results/'
+# detection_model is not a Keras model, so calling save() or save_weights() throws an error.
+# instead, use a checkpoint
+checkpoint = tf.train.Checkpoint(detection_model)
+save_path = checkpoint.save('my-models/checkpoint/mycheckpoints')
+print('checkpoints saved. save_path:', save_path)
+
+t2 = timer()
+test_image_dir = './test-data/'
+test_result_dir = './test-results/'
 test_images_np = []
 
 # load images into a numpy array. this will take a few minutes to complete.
@@ -214,39 +170,19 @@ for i in range(0, 237):
     test_images_np.append(np.expand_dims(
       load_image_into_numpy_array(image_path), axis=0))
 
-# Preprocess, predict, postprocess images
-# Again, uncomment this decorator if you want to run inference eagerly
-@tf.function
-def detect(input_tensor):
-    """Run detection on an input image.
-    Args:
-    input_tensor: A [1, height, width, 3] Tensor of type tf.float32.
-      Note that height and width can be anything since the image will be
-      immediately resized according to the needs of the model within this
-      function.
-
-    Returns:
-    A dict containing 3 Tensors (`detection_boxes`, `detection_classes`,
-      and `detection_scores`).
-    """
-    preprocessed_image, shapes = detection_model.preprocess(input_tensor)
-    prediction_dict = detection_model.predict(preprocessed_image, shapes)    
-    # use the detection model's postprocess() method to get the the final detections
-    detections = detection_model.postprocess(prediction_dict, shapes)
-    return detections
 
 label_id_offset = 1
 results = {'boxes': [], 'scores': []}
 
 for i in range(len(test_images_np)):
     input_tensor = tf.convert_to_tensor(test_images_np[i], dtype=tf.float32)
-    detections = detect(input_tensor)
+    detections = detect(detection_model, input_tensor)
     plot_detections(
       test_images_np[i][0],
       detections['detection_boxes'][0].numpy(),
       detections['detection_classes'][0].numpy().astype(np.uint32) + label_id_offset,
       detections['detection_scores'][0].numpy(),
-      category_index, figsize=(15, 20), image_name="./results/gif_frame_" + ('%03d' % i) + ".jpg")
+      category_index, figsize=(15, 20), image_name=test_result_dir + "/gif_frame_" + ('%03d' % i) + ".jpg")
     results['boxes'].append(detections['detection_boxes'][0][0].numpy())
     results['scores'].append(detections['detection_scores'][0][0].numpy())
 
@@ -254,7 +190,7 @@ x = np.array(results['scores'])
 
 # percent of frames where a zombie is detected
 zombie_detected = (np.where(x > 0.9, 1, 0).sum())/237*100
-print(f"zombie_detected: {zombie_detected}")
+print(f"zombie_detected: {zombie_detected}%")
 t3 = timer()
 print("training time (seconds):", timedelta(seconds=t2-t1))
 print("detection time (seconds):", timedelta(seconds=t3-t2))
