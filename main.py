@@ -1,5 +1,3 @@
-import pickle
-from ctypes import util
 import matplotlib.pyplot as plt
 import os
 import random
@@ -7,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from timeit import default_timer as timer
 from datetime import timedelta
-from common_functions import get_training_data, load_image_into_numpy_array, plot_detections, detect, build_detection_model
+from common_functions import get_training_data, load_image_into_numpy_array, plot_detections, detect, build_detection_model, predict_and_plot
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 from object_detection.utils import config_util # module for reading and updating configuration files.
@@ -161,35 +159,11 @@ print('checkpoints saved. save_path:', save_path)
 t2 = timer()
 test_image_dir = './test-data/'
 test_result_dir = './test-results/'
-test_images_np = []
-
-# load images into a numpy array. this will take a few minutes to complete.
-for i in range(0, 237):
-    image_path = os.path.join(test_image_dir, 'zombie-walk' + "{0:04}".format(i) + '.jpg')
-    print(image_path)
-    test_images_np.append(np.expand_dims(
-      load_image_into_numpy_array(image_path), axis=0))
-
-
-label_id_offset = 1
-results = {'boxes': [], 'scores': []}
-
-for i in range(len(test_images_np)):
-    input_tensor = tf.convert_to_tensor(test_images_np[i], dtype=tf.float32)
-    detections = detect(detection_model, input_tensor)
-    plot_detections(
-      test_images_np[i][0],
-      detections['detection_boxes'][0].numpy(),
-      detections['detection_classes'][0].numpy().astype(np.uint32) + label_id_offset,
-      detections['detection_scores'][0].numpy(),
-      category_index, figsize=(15, 20), image_name=test_result_dir + "/gif_frame_" + ('%03d' % i) + ".jpg")
-    results['boxes'].append(detections['detection_boxes'][0][0].numpy())
-    results['scores'].append(detections['detection_scores'][0][0].numpy())
-
+results, num_tests = predict_and_plot(detection_model, test_image_dir, test_result_dir, category_index)
+print('num_tests:', num_tests)
 x = np.array(results['scores'])
-
 # percent of frames where a zombie is detected
-zombie_detected = (np.where(x > 0.9, 1, 0).sum())/237*100
+zombie_detected = (np.where(x > 0.9, 1, 0).sum()) / num_tests * 100
 print(f"zombie_detected: {zombie_detected}%")
 t3 = timer()
 print("training time (seconds):", timedelta(seconds=t2-t1))

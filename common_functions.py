@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from object_detection.utils import visualization_utils as viz_utils # module for visualization
 from object_detection.utils import config_util
 from object_detection.builders import model_builder
+from pathlib import Path
+import glob
 
 
 # configure plot settings via rcParams
@@ -147,4 +149,27 @@ def build_detection_model():
     # postprocess the predictions into final detections
     tmp_detections = detection_model.postprocess(tmp_prediction_dict, tmp_shapes)
     return detection_model
+
+
+def predict_and_plot(detection_model, test_image_dir, test_result_dir, category_index):
+    label_id_offset = 1
+    results = {'boxes': [], 'scores': []}
+    num_tests = 0
+
+    for image_path in glob.glob(test_image_dir + "/*.jpg"):
+        print("processing " + image_path)
+        filename = Path(image_path).stem
+        test_image_np = np.expand_dims(load_image_into_numpy_array(image_path), axis=0)
+        input_tensor = tf.convert_to_tensor(test_image_np, dtype=tf.float32)
+        detections = detect(detection_model, input_tensor)
+        plot_detections(
+            test_image_np[0],
+            detections['detection_boxes'][0].numpy(),
+            detections['detection_classes'][0].numpy().astype(np.uint32) + label_id_offset,
+            detections['detection_scores'][0].numpy(),
+            category_index, figsize=(15, 20), image_name=test_result_dir + "/" + filename + "-result.jpg")
+        results['boxes'].append(detections['detection_boxes'][0][0].numpy())
+        results['scores'].append(detections['detection_scores'][0][0].numpy())
+        num_tests += 1
+    return results, num_tests
 
