@@ -11,7 +11,8 @@ tf.get_logger().setLevel('ERROR')
 from object_detection.utils import config_util # module for reading and updating configuration files.
 from object_detection.builders import model_builder
 
-train_images_np, gt_boxes = get_training_data("./training/training-data.csv")
+experiment_name = 'octopus1'
+train_images_np, gt_boxes = get_training_data("./experiments/" + experiment_name + "/training-data/bbox.csv")
 zombie_class_id = 1 # define the category index dictionary
 category_index = {zombie_class_id: {'id': zombie_class_id, 'name': 'zombie'}} # define a dictionary describing the zombie class
 num_classes = 1 # Specify the number of classes that the model will predict
@@ -47,7 +48,10 @@ for (train_image_np, gt_box_np) in zip(train_images_np, gt_boxes):
 print('Done prepping data.')
 
 # Visualise zombies with ground truth bounding boxes
-path_to_bounding_boxes = "./saved_images/bounding_boxes.png"
+saved_images_dir = './experiments/' + experiment_name + '/saved_images'
+if not os.path.exists(saved_images_dir):
+  os.mkdir(saved_images_dir)
+path_to_bounding_boxes = saved_images_dir + "/bounding_boxes.png"
 my_file = Path(path_to_bounding_boxes)
 if not my_file.is_file():
     dummy_scores = np.array([1.0], dtype=np.float32)
@@ -153,18 +157,23 @@ print('Done fine-tuning!')
 # detection_model is not a Keras model, so calling save() or save_weights() throws an error.
 # instead, use a checkpoint
 checkpoint = tf.train.Checkpoint(detection_model)
-save_path = checkpoint.save('my-models/checkpoint/mycheckpoints')
+
+save_path_parent = 'experiments/' + experiment_name + '/my-models/checkpoint'
+if not os.path.exists(save_path_parent):
+  os.mkdir(save_path_parent)
+
+save_path = checkpoint.save(save_path_parent + '/mycheckpoints')
 print('checkpoints saved. save_path:', save_path)
 
 t2 = timer()
-test_image_dir = './test-data/'
-test_result_dir = './test-results/'
+test_image_dir = './experiments/' + experiment_name + '/test-data/'
+test_result_dir = './experiments/' + experiment_name + '/test-results/'
 results, num_tests = predict_and_plot(detection_model, test_image_dir, test_result_dir, category_index)
 print('num_tests:', num_tests)
 x = np.array(results['scores'])
 # percent of frames where a zombie is detected
-zombie_detected = (np.where(x > 0.9, 1, 0).sum()) / num_tests * 100
-print(f"zombie_detected: {zombie_detected}%")
+object_detected = (np.where(x > 0.9, 1, 0).sum()) / num_tests * 100
+print(f"object_detected: {object_detected}%")
 t3 = timer()
 print("training time (seconds):", timedelta(seconds=t2-t1))
 print("detection time (seconds):", timedelta(seconds=t3-t2))
